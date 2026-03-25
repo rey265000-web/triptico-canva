@@ -1,0 +1,421 @@
+* { 
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+body { 
+    background-color: #f0f9f4;
+    color: #333;
+}
+
+.container { 
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card { 
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+/* Login */
+.login-wrapper { 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #2ed573 0%, #26af61 100%);
+}
+
+.login-box { 
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 450px;
+    text-align: center;
+}
+
+.login-box h2 { 
+    margin-bottom: 10px;
+    color: #2ed573;
+}
+
+/* Formularios */
+input, select, textarea { 
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+input:focus, select:focus, textarea:focus { 
+    outline: none;
+    border-color: #2ed573;
+}
+
+input[readonly] { 
+    background: white;
+    color: #333;
+}
+
+label {
+    text-align: left;
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Mensajes */
+.mensaje-exito {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 6px;
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.mensaje-error {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 6px;
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Botones */
+button { 
+    background: #2ed573;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    margin-top: 10px;
+}
+
+button:hover { 
+    background: #26af61;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-danger { background: #ff4757; }
+.btn-danger:hover { background: #e84142; }
+
+.btn-success { background: #2ed573; }
+.btn-success:hover { background: #26af61; }
+
+.btn-warning { background: #ffa502; }
+.btn-warning:hover { background: #e69500; }
+
+.btn-info { background: #2ecc71; }
+.btn-info:hover { background: #27ae60; }
+
+/* Navegación */
+nav { 
+    background: #27ae60;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+nav h1 { font-size: 1.3rem; }
+
+nav .user-info { 
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+nav button { 
+    width: auto;
+    padding: 8px 20px;
+    font-size: 14px;
+    margin-top: 0;
+}
+
+/* MENÚ HORIZONTAL */
+.menu-horizontal {
+    background: #2ecc71;
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.menu-horizontal button {
+    flex: 1;
+    min-width: 150px;
+    background: white;
+    border: 2px solid #2ecc71;
+    color: #2ecc71;
+    margin-top: 0;
+}
+
+.menu-horizontal button:hover,
+.menu-horizontal button.activo {
+    background: #2ecc71;
+    color: white;
+}
+
+/* Bienvenida */
+.bienvenida {
+    background: linear-gradient(135deg, #2ed573 0%, #2ecc71 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.bienvenida h2 {
+    margin-bottom: 10px;
+}
+
+/* Info Card */
+.info-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-top: 4px solid #2ed573;
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.info-item {
+    background: #f0f9f4;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #2ed573;
+}
+
+.info-item label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.info-item strong {
+    font-size: 16px;
+    color: #27ae60;
+}
+
+/* Cuatrimestre */
+.cuatrimestre {
+    background: #f0f9f4;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border-left: 4px solid #2ed573;
+}
+
+.cuatrimestre h4 {
+    color: #27ae60;
+    margin-bottom: 10px;
+}
+
+.cuatrimestre p {
+    margin: 5px 0;
+    color: #666;
+}
+
+/* Cerrar sesión */
+.cerrar-sesion {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+}
+
+/* Tablas */
+table { 
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: white;
+}
+
+th, td { 
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+th { 
+    background: #f0f9f4;
+    color: #27ae60;
+    font-weight: 600;
+}
+
+tr:hover { 
+    background: #f0f9f4;
+}
+
+/* Grid Empresas */
+.grid-empresas { 
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.empresa-card { 
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border-top: 4px solid #2ed573;
+}
+
+.empresa-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.empresa-img { 
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: #eee;
+}
+
+.empresa-img img { 
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.empresa-body { padding: 20px; }
+
+.empresa-titulo { 
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #27ae60;
+    margin-bottom: 8px;
+}
+
+.empresa-info { 
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.empresa-info strong { color: #2c3e50; }
+
+/* Badges */
+.badge { 
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+.badge-activa { background: #2ed573; }
+.badge-inactiva { background: #ff4757; }
+.badge-pendiente { background: #ffa502; }
+.badge-aceptado { background: #2ed573; }
+.badge-rechazado { background: #ff4757; }
+
+/* Formularios internos */
+.form-section { margin-bottom: 25px; }
+
+.form-section h3 { 
+    color: #27ae60;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #2ed573;
+}
+
+.form-row { 
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.form-group { margin-bottom: 10px; }
+
+.form-group label { 
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-top: 0;
+}
+
+.action-buttons { 
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-buttons button { flex: 1; }
+
+/* Empresa inactiva */
+.empresa-inactiva {
+    opacity: 0.7;
+    border: 2px solid #ff4757;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-row { grid-template-columns: 1fr; }
+    nav { flex-direction: column; text-align: center; }
+    .menu-horizontal { flex-direction: column; }
+    .menu-horizontal button { width: 100%; }
+}
+/* Checkboxes para múltiples carreras */
+.carreras-checkbox {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.carreras-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f0f9f4;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 0;
+}
+
+.carreras-checkbox input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.carreras-checkbox label:hover {
+    background: #e0f5e8;
+}

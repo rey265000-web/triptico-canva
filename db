@@ -1,0 +1,64 @@
+CREATE TABLE administradores (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(50)
+);
+
+CREATE TABLE alumnos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_completo VARCHAR(100),
+    apellido_completo VARCHAR(50),
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(50),
+    carrera VARCHAR(100),
+    matricula VARCHAR(20) UNIQUE,
+    nss VARCHAR(20),
+    nivel VARCHAR(50),
+    grupo VARCHAR(10),
+    telefono VARCHAR(15),
+    correo_personal VARCHAR(100),
+    correo_institucional VARCHAR(100),
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE empresas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_empresa VARCHAR(150),
+    estatus VARCHAR(50) DEFAULT 'Activa',
+    ubicacion VARCHAR(150),
+    carrera VARCHAR(50),
+    modalidad VARCHAR(50),
+    cupos INT,
+    descripcion TEXT,
+    nombre_dirigido VARCHAR(100),
+    grado_dirigido VARCHAR(10),
+    puesto_dirigido VARCHAR(100),
+    nombre_contacto VARCHAR(100),
+    puesto_contacto VARCHAR(100),
+    telefono_empresa VARCHAR(15),
+    correo_empresa VARCHAR(100),
+    foto_empresa VARCHAR(255),
+    dueño VARCHAR(100),
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE postulaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_alumno INT,
+    id_empresa INT,
+    numero_oficio VARCHAR(50),
+    nss VARCHAR(20),
+    nivel VARCHAR(50),
+    grupo VARCHAR(10),
+    telefono VARCHAR(15),
+    correo_personal VARCHAR(100),
+    correo_institucional VARCHAR(100),
+    fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado ENUM('pendiente', 'aceptado', 'rechazado') DEFAULT 'pendiente',
+    FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_empresa) REFERENCES empresas(id) ON DELETE CASCADE
+);
+
+INSERT INTO administradores (nombre, email, password) VALUES 
+('Direccion Academica', 'admin@escuela.edu', 'admin123');
