@@ -9,14 +9,36 @@ if (!isset($_SESSION['rol']) || $_SESSION['rol'] != 'alumno') {
 
 $nombre_completo = $_SESSION['nombre_completo'] . ' ' . $_SESSION['apellido_completo'];
 $matricula = $_SESSION['matricula'];
+$id_alumno = $_SESSION['id'];
+$id_carrera_alumno = isset($_SESSION['id_carrera']) ? $_SESSION['id_carrera'] : null;
+
+if (!$id_carrera_alumno) {
+    header("Location: index.php");
+    exit();
+}
 
 $seccion = isset($_GET['seccion']) ? $_GET['seccion'] : 'empresas';
 
-$ya_postulo = mysqli_query($conn, "SELECT id_empresa FROM postulaciones WHERE id_alumno={$_SESSION['id']}");
+// Obtener TODAS las postulaciones del alumno (cualquier estado)
+$postulaciones = mysqli_query($conn, "SELECT id_empresa, estado FROM postulaciones WHERE id_alumno=$id_alumno");
 $empresas_postuladas = [];
-while ($row = mysqli_fetch_assoc($ya_postulo)) {
+$tiene_postulacion = false;
+while ($row = mysqli_fetch_assoc($postulaciones)) {
     $empresas_postuladas[] = $row['id_empresa'];
+    $tiene_postulacion = true;
 }
+
+// Obtener carreras bloqueadas para este alumno
+$carreras_bloqueadas = [];
+$result_bloqueadas = mysqli_query($conn, "SELECT id_empresa, id_carrera FROM empresas_carreras_bloqueadas WHERE id_alumno=$id_alumno");
+while ($row = mysqli_fetch_assoc($result_bloqueadas)) {
+    if (!isset($carreras_bloqueadas[$row['id_empresa']])) {
+        $carreras_bloqueadas[$row['id_empresa']] = [];
+    }
+    $carreras_bloqueadas[$row['id_empresa']][] = $row['id_carrera'];
+}
+
+$notificaciones_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM notificaciones WHERE id_alumno=$id_alumno AND leido=0"))['total'];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -30,6 +52,29 @@ while ($row = mysqli_fetch_assoc($ya_postulo)) {
         <h1>Portal del Alumno</h1>
         <div class="user-info">
             <span>Bienvenido, <?php echo $nombre_completo; ?></span>
+            <div class="notificaciones-btn" onclick="toggleNotificaciones()">
+                🔔
+                <?php if($notificaciones_count > 0): ?>
+                <span class="notificaciones-badge"><?php echo $notificaciones_count; ?></span>
+                <?php endif; ?>
+                <div class="notificaciones-panel" id="notificacionesPanel">
+                    <h4 style="padding:15px; border-bottom:1px solid #eee;">Notificaciones</h4>
+                    <?php
+                    $notificaciones = mysqli_query($conn, "SELECT * FROM notificaciones WHERE id_alumno=$id_alumno ORDER BY fecha DESC");
+                    while ($notif = mysqli_fetch_assoc($notificaciones)): 
+                        mysqli_query($conn, "UPDATE notificaciones SET leido=1 WHERE id={$notif['id']}");
+                    ?>
+                    <div class="notificacion-item <?php echo $notif['tipo']; ?>">
+                        <h4><?php echo $notif['tipo'] == 'aceptado' ? '✅' : '❌'; ?> <?php echo $notif['tipo'] == 'aceptado' ? 'Aceptado' : 'Rechazado'; ?></h4>
+                        <p><?php echo $notif['mensaje']; ?></p>
+                        <small><?php echo $notif['fecha']; ?></small>
+                    </div>
+                    <?php endwhile; ?>
+                    <?php if($notificaciones_count == 0): ?>
+                    <p style="padding:15px; color:#999;">No hay notificaciones</p>
+                    <?php endif; ?>
+                </div>
+            </div>
             <a href="logout.php"><button class="btn-danger">Cerrar Sesion</button></a>
         </div>
     </nav>
@@ -51,32 +96,58 @@ while ($row = mysqli_fetch_assoc($ya_postulo)) {
         <?php if($seccion == 'empresas'): ?>
         <div class="info-card">
             <h3>Empresas Disponibles</h3>
+            <?php if($tiene_postulacion): ?>
+            <p style="color: #ffa502; margin-top: 10px;">⚠️ Ya te has postulado a una empresa. No puedes postularte a más empresas hasta que tu postulación sea aceptada o rechazada.</p>
+            <?php endif; ?>
         </div>
 
         <div class="grid-empresas">
             <?php
-            $sql = "SELECT e.*, GROUP_CONCAT(c.nombre SEPARATOR ', ') as carreras_nombres
-                    FROM empresas e
-                    LEFT JOIN empresas_carreras ec ON e.id = ec.id_empresa
-                    LEFT JOIN carreras c ON ec.id_carrera = c.id
-                    GROUP BY e.id
-                    ORDER BY e.id DESC";
+            $sql = "SELECT e.* FROM empresas e WHERE e.estatus = 'Activa' ORDER BY e.id DESC";
             $result = mysqli_query($conn, $sql);
             
             if (mysqli_num_rows($result) > 0) {
                 while ($row = mysqli_fetch_assoc($result)) {
                     $foto = $row['foto_empresa'] ? $row['foto_empresa'] : 'https://via.placeholder.com/400x200?text=Sin+Foto';
                     
-                    $esActiva = $row['estatus'] == 'Activa';
-                    $hayCupos = $row['cupos'] > 0;
-                    $yaPostulo = in_array($row['id'], $empresas_postuladas);
+                    $carreras_info = mysqli_query($conn, "SELECT ecl.id_carrera, c.nombre, ecl.lugares, ecl.lugares_ocupados,
+                                                          (ecl.lugares - ecl.lugares_ocupados) as lugares_disponibles
+                                                          FROM empresas_carreras_lugares ecl
+                                                          INNER JOIN carreras c ON ecl.id_carrera = c.id
+                                                          WHERE ecl.id_empresa = {$row['id']}");
                     
-                    $puedePostular = $esActiva && $hayCupos && !$yaPostulo;
+                    $carreras_array = [];
+                    while ($c = mysqli_fetch_assoc($carreras_info)) {
+                        $carreras_array[] = $c;
+                    }
+                    
+                    $yaPostulo = in_array($row['id'], $empresas_postuladas);
+                    $estaBloqueada = isset($carreras_bloqueadas[$row['id']]);
+                    
+                    // SI YA SE POSTULÓ A CUALQUIER EMPRESA, BLOQUEAR TODAS LAS DEMÁS
+                    if ($tiene_postulacion && !$yaPostulo) {
+                        $puedePostular = false;
+                    } else {
+                        $carreras_disponibles_para_alumno = [];
+                        foreach ($carreras_array as $carrera) {
+                            $esta_bloqueada = $estaBloqueada && in_array($carrera['id_carrera'], $carreras_bloqueadas[$row['id']]);
+                            $tiene_lugares = $carrera['lugares_disponibles'] > 0;
+                            
+                            if (!$esta_bloqueada && $tiene_lugares) {
+                                $carreras_disponibles_para_alumno[] = $carrera;
+                            }
+                        }
+                        $puedePostular = !$yaPostulo && count($carreras_disponibles_para_alumno) > 0;
+                    }
                     
                     if ($yaPostulo) {
                         $btnTexto = 'Ya Postulado';
+                    } elseif ($tiene_postulacion) {
+                        $btnTexto = 'Bloqueado';
+                    } elseif (count($carreras_disponibles_para_alumno) == 0) {
+                        $btnTexto = 'Sin Carreras Disponibles';
                     } else {
-                        $btnTexto = $puedePostular ? 'Postularme' : ($esActiva ? 'Sin Cupos' : 'No Disponible');
+                        $btnTexto = 'Postularme';
                     }
                     
                     $claseExtra = '';
@@ -84,19 +155,30 @@ while ($row = mysqli_fetch_assoc($ya_postulo)) {
                         $claseExtra = ' empresa-inactiva';
                     }
                     
+                    $carreras_texto = "";
+                    foreach ($carreras_array as $carrera) {
+                        $carreras_texto .= $carrera['nombre'] . " (" . $carrera['lugares_disponibles'] . "), ";
+                    }
+                    $carreras_texto = rtrim($carreras_texto, ", ");
+                    
+                    $direccion_completa = $row['calle'];
+                    if ($row['num_ext']) $direccion_completa .= " #" . $row['num_ext'];
+                    if ($row['num_int']) $direccion_completa .= " Int. " . $row['num_int'];
+                    $direccion_completa .= ", " . $row['colonia'];
+                    $direccion_completa .= ", " . $row['ciudad'] . ", " . $row['estado'];
+                    
                     echo "<div class='empresa-card{$claseExtra}'>";
                     echo "<div class='empresa-img'><img src='{$foto}' alt='{$row['nombre_empresa']}'></div>";
                     echo "<div class='empresa-body'>";
                     echo "<div class='empresa-titulo'>{$row['nombre_empresa']}</div>";
-                    echo "<div class='empresa-info'><strong>Carreras:</strong> " . ($row['carreras_nombres'] ? $row['carreras_nombres'] : 'Todas') . "</div>";
-                    echo "<div class='empresa-info'><strong>Ubicacion:</strong> {$row['ubicacion']}</div>";
+                    echo "<div class='empresa-info'><strong>Carreras:</strong> " . ($carreras_texto ? $carreras_texto : 'N/A') . "</div>";
+                    echo "<div class='empresa-info'><strong>Direccion:</strong> {$direccion_completa}</div>";
                     echo "<div class='empresa-info'><strong>Modalidad:</strong> {$row['modalidad']}</div>";
                     echo "<div class='empresa-info'><strong>Puesto:</strong> {$row['puesto_dirigido']}</div>";
                     echo "<div class='empresa-info'><strong>Contacto:</strong> {$row['nombre_contacto']}</div>";
                     echo "<div class='empresa-info'><strong>Telefono:</strong> {$row['telefono_empresa']}</div>";
                     echo "<div class='empresa-info'><strong>Correo:</strong> {$row['correo_empresa']}</div>";
-                    echo "<div class='empresa-info'><strong>Cupos:</strong> {$row['cupos']}</div>";
-                    echo "<div style='margin-top:15px;'><span class='badge " . ($esActiva ? 'badge-activa' : 'badge-inactiva') . "'>{$row['estatus']}</span></div>";
+                    echo "<div style='margin-top:15px;'><span class='badge badge-activa'>Activa</span></div>";
                     
                     if ($puedePostular) {
                         echo "<a href='postular.php?id_empresa={$row['id']}' style='display:block; margin-top:15px;'>";
@@ -126,7 +208,7 @@ while ($row = mysqli_fetch_assoc($ya_postulo)) {
                 FROM postulaciones p 
                 INNER JOIN empresas e ON p.id_empresa = e.id 
                 LEFT JOIN carreras c ON p.id_carrera_postulacion = c.id
-                WHERE p.id_alumno = {$_SESSION['id']} 
+                WHERE p.id_alumno = $id_alumno
                 ORDER BY p.fecha_postulacion DESC";
         
         $result = mysqli_query($conn, $sql);
@@ -161,5 +243,12 @@ while ($row = mysqli_fetch_assoc($ya_postulo)) {
         <?php endif; ?>
 
     </div>
+
+    <script>
+        function toggleNotificaciones() {
+            var panel = document.getElementById('notificacionesPanel');
+            panel.classList.toggle('activo');
+        }
+    </script>
 </body>
 </html>

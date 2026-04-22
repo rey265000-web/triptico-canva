@@ -10,19 +10,37 @@ if (!isset($_SESSION['rol'])) {
 $mensaje = "";
 $tipo_mensaje = "";
 
-if (isset($_POST['actualizar_estado'])) {
-    if (isset($_POST['nuevo_estado']) && isset($_POST['id_postulacion']) && isset($_POST['id_empresa'])) {
-        $id_postulacion = $_POST['id_postulacion'];
-        $nuevo_estado = $_POST['nuevo_estado'];
-        $id_empresa = $_POST['id_empresa'];
+if (isset($_POST['accion_postulacion'])) {
+    $id_postulacion = $_POST['id_postulacion'];
+    $id_empresa = $_POST['id_empresa'];
+    $id_carrera = $_POST['id_carrera'];
+    $id_alumno = $_POST['id_alumno'];
+    $accion = $_POST['accion_postulacion'];
+    
+    $empresa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nombre_empresa FROM empresas WHERE id=$id_empresa"));
+    
+    if ($accion == 'aceptar') {
+        mysqli_query($conn, "UPDATE postulaciones SET estado='aceptado' WHERE id=$id_postulacion");
+        mysqli_query($conn, "UPDATE empresas_carreras_lugares SET lugares_ocupados = lugares_ocupados + 1 
+                            WHERE id_empresa=$id_empresa AND id_carrera=$id_carrera");
         
-        mysqli_query($conn, "UPDATE postulaciones SET estado='$nuevo_estado' WHERE id=$id_postulacion");
+        $mensaje_notificacion = "Felicidades ya esta usted en una empresa: " . $empresa['nombre_empresa'];
+        mysqli_query($conn, "INSERT INTO notificaciones (id_alumno, mensaje, tipo) 
+                            VALUES ($id_alumno, '$mensaje_notificacion', 'aceptado')");
         
-        if ($nuevo_estado == 'rechazado') {
-            mysqli_query($conn, "UPDATE empresas SET cupos = cupos + 1 WHERE id=$id_empresa");
-        }
+        $mensaje = "Postulación aceptada. Se notificó al alumno.";
+        $tipo_mensaje = "exito";
         
-        $mensaje = "Estado actualizado";
+    } elseif ($accion == 'rechazar') {
+        mysqli_query($conn, "DELETE FROM postulaciones WHERE id=$id_postulacion");
+        mysqli_query($conn, "INSERT INTO empresas_carreras_bloqueadas (id_alumno, id_empresa, id_carrera) 
+                            VALUES ($id_alumno, $id_empresa, $id_carrera)");
+        
+        $mensaje_notificacion = "Eliga otra empresa. Su postulacion a " . $empresa['nombre_empresa'] . " fue rechazada.";
+        mysqli_query($conn, "INSERT INTO notificaciones (id_alumno, mensaje, tipo) 
+                            VALUES ($id_alumno, '$mensaje_notificacion', 'rechazado')");
+        
+        $mensaje = "Postulación rechazada. El alumno puede postularse a otras empresas.";
         $tipo_mensaje = "exito";
     }
 }
@@ -37,7 +55,7 @@ if ($_SESSION['rol'] == 'admin') {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mis Postulaciones - SGEP</title>
+    <title>Postulaciones - SGEP</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -53,7 +71,7 @@ if ($_SESSION['rol'] == 'admin') {
             <a href="mis_postulaciones.php?rol=alumno"><button class="menu-btn">Mis Postulaciones</button></a>
             <?php else: ?>
             <a href="admin.php"><button class="menu-btn">Empresas</button></a>
-            <a href="mis_postulaciones.php?rol=admin"><button class="menu-btn">Postulaciones</button></a>
+            <a href="admin.php?seccion=postulaciones"><button class="menu-btn">Postulaciones</button></a>
             <?php endif; ?>
         </div>
     </nav>
@@ -65,16 +83,26 @@ if ($_SESSION['rol'] == 'admin') {
         </div>
         <?php endif; ?>
 
-        <div class="card">
+        <div class="info-card">
             <h3><?php echo $_SESSION['rol'] == 'admin' ? 'Todas las Postulaciones' : 'Mis Postulaciones'; ?></h3>
         </div>
 
         <?php
         if ($_SESSION['rol'] == 'alumno') {
-            $id_alumno = $_SESSION['id'];
-            $sql = "SELECT p.*, e.* FROM postulaciones p INNER JOIN empresas e ON p.id_empresa = e.id WHERE p.id_alumno = '$id_alumno' ORDER BY p.fecha_postulacion DESC";
+            $sql = "SELECT p.*, e.nombre_empresa, c.nombre as carrera_nombre
+                    FROM postulaciones p 
+                    INNER JOIN empresas e ON p.id_empresa = e.id 
+                    LEFT JOIN carreras c ON p.id_carrera_postulacion = c.id 
+                    WHERE p.id_alumno = {$_SESSION['id']} 
+                    ORDER BY p.fecha_postulacion DESC";
         } else {
-            $sql = "SELECT p.*, e.*, u.nombre_completo, u.apellido_completo, u.matricula FROM postulaciones p INNER JOIN empresas e ON p.id_empresa = e.id INNER JOIN alumnos u ON p.id_alumno = u.id ORDER BY p.fecha_postulacion DESC";
+            $sql = "SELECT p.*, e.nombre_empresa, c.nombre as carrera_nombre, 
+                           a.nombre_completo, a.matricula
+                    FROM postulaciones p 
+                    INNER JOIN empresas e ON p.id_empresa = e.id 
+                    LEFT JOIN carreras c ON p.id_carrera_postulacion = c.id 
+                    INNER JOIN alumnos a ON p.id_alumno = a.id 
+                    ORDER BY p.fecha_postulacion DESC";
         }
         
         $result = mysqli_query($conn, $sql);
@@ -95,53 +123,29 @@ if ($_SESSION['rol'] == 'admin') {
                 echo "<div class='card'>";
                 echo "<h4>{$row['nombre_empresa']} - <span class='badge {$badge}'>{$estadoTexto}</span></h4>";
                 
-                echo "<div class='form-section' style='margin-top:15px;'>";
-                echo "<h3>Datos de la Empresa</h3>";
-                echo "<div class='form-row'>";
-                echo "<div class='form-group'><label>Ubicacion:</label><input type='text' value='{$row['ubicacion']}' readonly></div>";
-                echo "<div class='form-group'><label>Carrera:</label><input type='text' value='{$row['carrera']}' readonly></div>";
-                echo "<div class='form-group'><label>Modalidad:</label><input type='text' value='{$row['modalidad']}' readonly></div>";
-                echo "</div>";
-                echo "<div class='form-row'>";
-                echo "<div class='form-group'><label>Cupos:</label><input type='text' value='{$row['cupos']}' readonly></div>";
-                echo "<div class='form-group'><label>Estatus:</label><input type='text' value='{$row['estatus']}' readonly></div>";
-                echo "</div>";
-                echo "<div class='form-group'><label>Descripcion:</label><textarea rows='2' readonly>{$row['descripcion']}</textarea></div>";
-                echo "<div class='form-row'>";
-                echo "<div class='form-group'><label>Dirigido a:</label><input type='text' value='{$row['grado_dirigido']} {$row['nombre_dirigido']}' readonly></div>";
-                echo "<div class='form-group'><label>Puesto:</label><input type='text' value='{$row['puesto_dirigido']}' readonly></div>";
-                echo "</div>";
-                echo "<div class='form-row'>";
-                echo "<div class='form-group'><label>Contacto:</label><input type='text' value='{$row['nombre_contacto']}' readonly></div>";
-                echo "<div class='form-group'><label>Puesto Contacto:</label><input type='text' value='{$row['puesto_contacto']}' readonly></div>";
-                echo "</div>";
-                echo "<div class='form-row'>";
-                echo "<div class='form-group'><label>Telefono:</label><input type='text' value='{$row['telefono_empresa']}' readonly></div>";
-                echo "<div class='form-group'><label>Correo:</label><input type='text' value='{$row['correo_empresa']}' readonly></div>";
-                echo "</div>";
-                echo "</div>";
+                if ($_SESSION['rol'] == 'admin') {
+                    echo "<p><strong>Alumno:</strong> {$row['nombre_completo']} ({$row['matricula']})</p>";
+                }
                 
+                echo "<p><strong>Carrera:</strong> " . ($row['carrera_nombre'] ? $row['carrera_nombre'] : 'N/A') . "</p>";
                 echo "<p><strong>Fecha:</strong> {$row['fecha_postulacion']}</p>";
                 echo "<p><strong>Numero de Oficio:</strong> {$row['numero_oficio']}</p>";
                 
-                if ($_SESSION['rol'] == 'alumno') {
-                    echo "<a href='ver_postulacion.php?id={$row['id']}'><button class='btn-info'>Ver Detalles Completos</button></a>";
-                } else {
-                    echo "<p><strong>Alumno:</strong> {$row['nombre_completo']} {$row['apellido_completo']} ({$row['matricula']})</p>";
-                    
-                    if ($row['estado'] == 'pendiente') {
-                        echo "<form method='POST' style='margin-top:10px;'>";
-                        echo "<input type='hidden' name='id_postulacion' value='{$row['id']}'>";
-                        echo "<input type='hidden' name='id_empresa' value='{$row['id_empresa']}'>";
-                        echo "<div class='action-buttons'>";
-                        echo "<button type='submit' name='actualizar_estado' value='aceptado' class='btn-success'>Aceptar</button>";
-                        echo "<button type='submit' name='actualizar_estado' value='rechazado' class='btn-danger'>Rechazar</button>";
-                        echo "</div>";
-                        echo "</form>";
-                    }
-                    echo "<a href='ver_postulacion.php?id={$row['id']}'><button class='btn-info' style='margin-top:10px;'>Ver Detalles Completos</button></a>";
+                if ($_SESSION['rol'] == 'admin' && $row['estado'] == 'pendiente') {
+                    echo "<form method='POST' style='margin-top:10px;'>";
+                    echo "<input type='hidden' name='id_postulacion' value='{$row['id']}'>";
+                    echo "<input type='hidden' name='id_empresa' value='{$row['id_empresa']}'>";
+                    echo "<input type='hidden' name='id_carrera' value='{$row['id_carrera_postulacion']}'>";
+                    echo "<input type='hidden' name='id_alumno' value='{$row['id_alumno']}'>";
+                    echo "<input type='hidden' name='accion_postulacion' value=''>";
+                    echo "<div class='action-buttons'>";
+                    echo "<button type='button' onclick=\"this.form.accion_postulacion.value='aceptar'; this.form.submit();\" class='btn-success'>✓ Aceptar</button>";
+                    echo "<button type='button' onclick=\"this.form.accion_postulacion.value='rechazar'; this.form.submit();\" class='btn-danger'>✗ Rechazar</button>";
+                    echo "</div>";
+                    echo "</form>";
                 }
                 
+                echo "<a href='ver_postulacion.php?id={$row['id']}'><button class='btn-info' style='margin-top:10px;'>Ver Detalles</button></a>";
                 echo "</div>";
             }
         } else {

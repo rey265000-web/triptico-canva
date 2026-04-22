@@ -1,35 +1,48 @@
+DROP DATABASE IF EXISTS db_estadias;
+CREATE DATABASE db_estadias;
+USE db_estadias;
+
 CREATE TABLE administradores (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100),
-    email VARCHAR(100) UNIQUE,
+    usuario VARCHAR(50) UNIQUE,
     password VARCHAR(50)
+);
+
+CREATE TABLE carreras (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100)
 );
 
 CREATE TABLE alumnos (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre_completo VARCHAR(100),
-    apellido_completo VARCHAR(50),
-    email VARCHAR(100) UNIQUE,
-    password VARCHAR(50),
-    carrera VARCHAR(100),
+    nombre_completo VARCHAR(150),
+    apellido_completo VARCHAR(100),
     matricula VARCHAR(20) UNIQUE,
+    password VARCHAR(50),
+    id_carrera INT,
     nss VARCHAR(20),
     nivel VARCHAR(50),
     grupo VARCHAR(10),
     telefono VARCHAR(15),
     correo_personal VARCHAR(100),
     correo_institucional VARCHAR(100),
-    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_carrera) REFERENCES carreras(id)
 );
 
 CREATE TABLE empresas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre_empresa VARCHAR(150),
     estatus VARCHAR(50) DEFAULT 'Activa',
-    ubicacion VARCHAR(150),
-    carrera VARCHAR(50),
+    ciudad VARCHAR(100),
+    estado VARCHAR(100),
+    cp VARCHAR(10),
+    calle VARCHAR(150),
+    num_ext VARCHAR(20),
+    num_int VARCHAR(20),
+    colonia VARCHAR(100),
     modalidad VARCHAR(50),
-    cupos INT,
     descripcion TEXT,
     nombre_dirigido VARCHAR(100),
     grado_dirigido VARCHAR(10),
@@ -39,14 +52,34 @@ CREATE TABLE empresas (
     telefono_empresa VARCHAR(15),
     correo_empresa VARCHAR(100),
     foto_empresa VARCHAR(255),
-    dueño VARCHAR(100),
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE empresas_carreras_lugares (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_empresa INT,
+    id_carrera INT,
+    lugares INT DEFAULT 0,
+    lugares_ocupados INT DEFAULT 0,
+    FOREIGN KEY (id_empresa) REFERENCES empresas(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_carrera) REFERENCES carreras(id) ON DELETE CASCADE
+);
+
+CREATE TABLE empresas_carreras_bloqueadas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_alumno INT,
+    id_empresa INT,
+    id_carrera INT,
+    FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_empresa) REFERENCES empresas(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_carrera) REFERENCES carreras(id) ON DELETE CASCADE
 );
 
 CREATE TABLE postulaciones (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_alumno INT,
     id_empresa INT,
+    id_carrera_postulacion INT,
     numero_oficio VARCHAR(50),
     nss VARCHAR(20),
     nivel VARCHAR(50),
@@ -57,8 +90,40 @@ CREATE TABLE postulaciones (
     fecha_postulacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     estado ENUM('pendiente', 'aceptado', 'rechazado') DEFAULT 'pendiente',
     FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_empresa) REFERENCES empresas(id) ON DELETE CASCADE
+    FOREIGN KEY (id_empresa) REFERENCES empresas(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_carrera_postulacion) REFERENCES carreras(id)
 );
 
-INSERT INTO administradores (nombre, email, password) VALUES 
-('Direccion Academica', 'admin@escuela.edu', 'admin123');
+CREATE TABLE notificaciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_alumno INT,
+    mensaje TEXT,
+    tipo ENUM('aceptado', 'rechazado') DEFAULT 'rechazado',
+    leido TINYINT(1) DEFAULT 0,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE
+);
+
+-- DATOS INICIALES
+INSERT INTO administradores (nombre, usuario, password) VALUES ('Direccion Academica', 'admin', 'admin123');
+
+INSERT INTO carreras (nombre) VALUES
+('Desarrollo de Software Multiplataforma'),
+('Administracion'),
+('Mercadotecnia'),
+('Turismo'),
+('Gastronomia'),
+('Agrobiotecnologia'),
+('Agricultura');
+
+INSERT INTO alumnos (nombre_completo, apellido_completo, matricula, password, id_carrera) VALUES
+('Rey', 'Mundo', '05-001-0324', 'al0001', 1),
+('María', 'García', '05-002-0324', 'al0002', 2),
+('Mundo', 'Guapo', '05-003-0324', 'al0003', 3),
+('Ana', 'Mundo', '05-004-0324', 'al0004', 4),
+('Luis', 'Rodríguez', '05-005-0324', 'al0005', 5),
+('Laura', 'Hernández', '05-006-0324', 'al0006', 6),
+('Pedro', 'González', '05-007-0324', 'al0007', 7),
+('Sofía', 'Díaz', '05-008-0324', 'al0008', 1),
+('Miguel', 'Sánchez', '05-009-0324', 'al0009', 2),
+('Carmen', 'Ramírez', '05-010-0324', 'al0010', 3);

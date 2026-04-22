@@ -11,12 +11,18 @@ $mensaje = "";
 $tipo_mensaje = "";
 $seccion = isset($_GET['seccion']) ? $_GET['seccion'] : 'empresas';
 
+// AGREGAR EMPRESA
 if (isset($_POST['agregar_empresa'])) {
     $nombre = $_POST['nombre_empresa'];
     $estatus = $_POST['estatus'];
-    $ubicacion = $_POST['ubicacion'];
+    $ciudad = $_POST['ciudad'];
+    $estado = $_POST['estado'];
+    $cp = $_POST['cp'];
+    $calle = $_POST['calle'];
+    $num_ext = $_POST['num_ext'];
+    $num_int = $_POST['num_int'];
+    $colonia = $_POST['colonia'];
     $modalidad = $_POST['modalidad'];
-    $cupos = $_POST['cupos'];
     $descripcion = $_POST['descripcion'];
     $nombre_dirigido = $_POST['nombre_dirigido'];
     $grado_dirigido = $_POST['grado_dirigido'];
@@ -26,10 +32,7 @@ if (isset($_POST['agregar_empresa'])) {
     $telefono = $_POST['telefono_empresa'];
     $correo = $_POST['correo_empresa'];
     $carreras = isset($_POST['carreras']) ? $_POST['carreras'] : [];
-    
-    if ($estatus == 'Inactiva') {
-        $cupos = 0;
-    }
+    $lugares = isset($_POST['lugares']) ? $_POST['lugares'] : [];
     
     $foto = "";
     if (isset($_FILES['foto_empresa']) && $_FILES['foto_empresa']['error'] == 0) {
@@ -50,19 +53,22 @@ if (isset($_POST['agregar_empresa'])) {
         }
     }
     
-    $sql = "INSERT INTO empresas (nombre_empresa, estatus, ubicacion, modalidad, cupos, descripcion, 
-            nombre_dirigido, grado_dirigido, puesto_dirigido, nombre_contacto, puesto_contacto, 
-            telefono_empresa, correo_empresa, foto_empresa) 
-            VALUES ('$nombre', '$estatus', '$ubicacion', '$modalidad', '$cupos', '$descripcion',
-            '$nombre_dirigido', '$grado_dirigido', '$puesto_dirigido', '$nombre_contacto', '$puesto_contacto',
-            '$telefono', '$correo', '$foto')";
+    $sql = "INSERT INTO empresas (nombre_empresa, estatus, ciudad, estado, cp, calle, num_ext, num_int, colonia, 
+            modalidad, descripcion, nombre_dirigido, grado_dirigido, puesto_dirigido, nombre_contacto, 
+            puesto_contacto, telefono_empresa, correo_empresa, foto_empresa) 
+            VALUES ('$nombre', '$estatus', '$ciudad', '$estado', '$cp', '$calle', '$num_ext', '$num_int', '$colonia',
+            '$modalidad', '$descripcion', '$nombre_dirigido', '$grado_dirigido', '$puesto_dirigido', '$nombre_contacto', 
+            '$puesto_contacto', '$telefono', '$correo', '$foto')";
     
     if (mysqli_query($conn, $sql)) {
         $id_empresa = mysqli_insert_id($conn);
         
-        // Insertar carreras seleccionadas
         foreach ($carreras as $id_carrera) {
-            mysqli_query($conn, "INSERT INTO empresas_carreras (id_empresa, id_carrera) VALUES ($id_empresa, $id_carrera)");
+            $lugares_carrera = isset($lugares[$id_carrera]) ? (int)$lugares[$id_carrera] : 0;
+            if ($lugares_carrera >= 0) {
+                mysqli_query($conn, "INSERT INTO empresas_carreras_lugares (id_empresa, id_carrera, lugares, lugares_ocupados) 
+                                    VALUES ($id_empresa, $id_carrera, $lugares_carrera, 0)");
+            }
         }
         
         $mensaje = "Empresa agregada correctamente";
@@ -70,31 +76,37 @@ if (isset($_POST['agregar_empresa'])) {
     }
 }
 
+// EDITAR EMPRESA
 if (isset($_POST['editar_empresa'])) {
     $id = $_POST['id_empresa'];
     $nombre = $_POST['nombre_empresa'];
     $estatus = $_POST['estatus'];
-    $ubicacion = $_POST['ubicacion'];
+    $ciudad = $_POST['ciudad'];
+    $estado = $_POST['estado'];
+    $cp = $_POST['cp'];
+    $calle = $_POST['calle'];
+    $num_ext = $_POST['num_ext'];
+    $num_int = $_POST['num_int'];
+    $colonia = $_POST['colonia'];
     $modalidad = $_POST['modalidad'];
-    $cupos = $_POST['cupos'];
     $descripcion = $_POST['descripcion'];
     $carreras = isset($_POST['carreras']) ? $_POST['carreras'] : [];
+    $lugares = isset($_POST['lugares']) ? $_POST['lugares'] : [];
     
-    if ($estatus == 'Inactiva') {
-        $cupos = 0;
-    }
-    
-    $sql = "UPDATE empresas SET nombre_empresa='$nombre', estatus='$estatus', ubicacion='$ubicacion', 
-            modalidad='$modalidad', cupos='$cupos', descripcion='$descripcion'
+    $sql = "UPDATE empresas SET nombre_empresa='$nombre', estatus='$estatus', ciudad='$ciudad', estado='$estado', 
+            cp='$cp', calle='$calle', num_ext='$num_ext', num_int='$num_int', colonia='$colonia',
+            modalidad='$modalidad', descripcion='$descripcion'
             WHERE id=$id";
     
     if (mysqli_query($conn, $sql)) {
-        // Eliminar carreras anteriores
-        mysqli_query($conn, "DELETE FROM empresas_carreras WHERE id_empresa=$id");
+        mysqli_query($conn, "DELETE FROM empresas_carreras_lugares WHERE id_empresa=$id");
         
-        // Insertar nuevas carreras
         foreach ($carreras as $id_carrera) {
-            mysqli_query($conn, "INSERT INTO empresas_carreras (id_empresa, id_carrera) VALUES ($id, $id_carrera)");
+            $lugares_carrera = isset($lugares[$id_carrera]) ? (int)$lugares[$id_carrera] : 0;
+            if ($lugares_carrera >= 0) {
+                mysqli_query($conn, "INSERT INTO empresas_carreras_lugares (id_empresa, id_carrera, lugares, lugares_ocupados) 
+                                    VALUES ($id, $id_carrera, $lugares_carrera, 0)");
+            }
         }
         
         $mensaje = "Empresa actualizada correctamente";
@@ -102,25 +114,45 @@ if (isset($_POST['editar_empresa'])) {
     }
 }
 
+// ELIMINAR EMPRESA
 if (isset($_GET['eliminar'])) {
     $id = $_GET['eliminar'];
     mysqli_query($conn, "DELETE FROM empresas WHERE id=$id");
     header("Location: admin.php?seccion=empresas");
 }
 
-if (isset($_POST['actualizar_estado'])) {
-    if (isset($_POST['nuevo_estado']) && isset($_POST['id_postulacion']) && isset($_POST['id_empresa'])) {
-        $id_postulacion = $_POST['id_postulacion'];
-        $nuevo_estado = $_POST['nuevo_estado'];
-        $id_empresa = $_POST['id_empresa'];
+// PROCESAR ACEPTAR/RECHAZAR POSTULACIÓN
+if (isset($_POST['accion_postulacion'])) {
+    $id_postulacion = $_POST['id_postulacion'];
+    $id_empresa = $_POST['id_empresa'];
+    $id_carrera = $_POST['id_carrera'];
+    $id_alumno = $_POST['id_alumno'];
+    $accion = $_POST['accion_postulacion'];
+    
+    $empresa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nombre_empresa FROM empresas WHERE id=$id_empresa"));
+    
+    if ($accion == 'aceptar') {
+        mysqli_query($conn, "UPDATE postulaciones SET estado='aceptado' WHERE id=$id_postulacion");
+        mysqli_query($conn, "UPDATE empresas_carreras_lugares SET lugares_ocupados = lugares_ocupados + 1 
+                            WHERE id_empresa=$id_empresa AND id_carrera=$id_carrera");
         
-        mysqli_query($conn, "UPDATE postulaciones SET estado='$nuevo_estado' WHERE id=$id_postulacion");
+        $mensaje_notificacion = "Felicidades ya esta usted en una empresa: " . $empresa['nombre_empresa'];
+        mysqli_query($conn, "INSERT INTO notificaciones (id_alumno, mensaje, tipo) 
+                            VALUES ($id_alumno, '$mensaje_notificacion', 'aceptado')");
         
-        if ($nuevo_estado == 'rechazado') {
-            mysqli_query($conn, "UPDATE empresas SET cupos = cupos + 1 WHERE id=$id_empresa");
-        }
+        $mensaje = "Postulación aceptada. Se notificó al alumno.";
+        $tipo_mensaje = "exito";
         
-        $mensaje = "Estado actualizado";
+    } elseif ($accion == 'rechazar') {
+        mysqli_query($conn, "DELETE FROM postulaciones WHERE id=$id_postulacion");
+        mysqli_query($conn, "INSERT INTO empresas_carreras_bloqueadas (id_alumno, id_empresa, id_carrera) 
+                            VALUES ($id_alumno, $id_empresa, $id_carrera)");
+        
+        $mensaje_notificacion = "Eliga otra empresa. Su postulacion a " . $empresa['nombre_empresa'] . " fue rechazada.";
+        mysqli_query($conn, "INSERT INTO notificaciones (id_alumno, mensaje, tipo) 
+                            VALUES ($id_alumno, '$mensaje_notificacion', 'rechazado')");
+        
+        $mensaje = "Postulación rechazada. El alumno puede postularse a otras empresas.";
         $tipo_mensaje = "exito";
     }
 }
@@ -132,13 +164,12 @@ if (isset($_GET['editar'])) {
     $result = mysqli_query($conn, "SELECT * FROM empresas WHERE id=$id_editar");
     $empresa_editar = mysqli_fetch_assoc($result);
     
-    $result = mysqli_query($conn, "SELECT id_carrera FROM empresas_carreras WHERE id_empresa=$id_editar");
+    $result = mysqli_query($conn, "SELECT * FROM empresas_carreras_lugares WHERE id_empresa=$id_editar");
     while ($row = mysqli_fetch_assoc($result)) {
-        $carreras_empresa[] = $row['id_carrera'];
+        $carreras_empresa[$row['id_carrera']] = $row['lugares'];
     }
 }
 
-// Obtener todas las carreras
 $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id");
 ?>
 <!DOCTYPE html>
@@ -177,6 +208,7 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
         </div>
         <?php endif; ?>
 
+        <!-- SECCIÓN EMPRESAS -->
         <?php if($seccion == 'empresas'): ?>
         <div class="info-card">
             <h3>Gestion de Empresas</h3>
@@ -205,32 +237,50 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
                         </div>
                         <div class="form-group">
                             <label>Estatus *</label>
-                            <select name="estatus" id="estatus" required onchange="cambiarCupos()">
+                            <select name="estatus" required>
                                 <option value="Activa" <?php echo ($empresa_editar && $empresa_editar['estatus'] == 'Activa') ? 'selected' : ''; ?>>Activa</option>
                                 <option value="Inactiva" <?php echo ($empresa_editar && $empresa_editar['estatus'] == 'Inactiva') ? 'selected' : ''; ?>>Inactiva</option>
                             </select>
                         </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Direccion</h3>
+                    <div class="form-row">
                         <div class="form-group">
-                            <label>Ubicacion *</label>
-                            <input type="text" name="ubicacion" value="<?php echo $empresa_editar ? $empresa_editar['ubicacion'] : ''; ?>" required>
+                            <label>Calle *</label>
+                            <input type="text" name="calle" value="<?php echo $empresa_editar ? $empresa_editar['calle'] : ''; ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Numero Exterior *</label>
+                            <input type="text" name="num_ext" value="<?php echo $empresa_editar ? $empresa_editar['num_ext'] : ''; ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Numero Interior</label>
+                            <input type="text" name="num_int" value="<?php echo $empresa_editar ? $empresa_editar['num_int'] : ''; ?>">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Carreras *</label>
-                            <div class="carreras-checkbox">
-                                <?php 
-                                mysqli_data_seek($carreras_disponibles, 0);
-                                while ($carrera = mysqli_fetch_assoc($carreras_disponibles)): 
-                                    $checked = in_array($carrera['id'], $carreras_empresa) ? 'checked' : '';
-                                ?>
-                                <label>
-                                    <input type="checkbox" name="carreras[]" value="<?php echo $carrera['id']; ?>" <?php echo $checked; ?>>
-                                    <?php echo $carrera['nombre']; ?>
-                                </label>
-                                <?php endwhile; ?>
-                            </div>
+                            <label>Colonia *</label>
+                            <input type="text" name="colonia" value="<?php echo $empresa_editar ? $empresa_editar['colonia'] : ''; ?>" required>
                         </div>
+                        <div class="form-group">
+                            <label>Ciudad*</label>
+                            <input type="text" name="ciudad" value="<?php echo $empresa_editar ? $empresa_editar['ciudad'] : ''; ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Estado *</label>
+                            <input type="text" name="cp" value="<?php echo $empresa_editar ? $empresa_editar['cp'] : ''; ?>" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Informacion Adicional</h3>
+                    <div class="form-row">
                         <div class="form-group">
                             <label>Modalidad *</label>
                             <select name="modalidad" required>
@@ -241,13 +291,39 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Cupos Disponibles *</label>
-                            <input type="number" name="cupos" id="cupos" min="0" value="<?php echo $empresa_editar ? $empresa_editar['cupos'] : '5'; ?>" required>
+                            <label>Estado de la Empresa *</label>
+                            <input type="text" name="estado" value="<?php echo $empresa_editar ? $empresa_editar['estado'] : ''; ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Descripcion del Proyecto</label>
+                            <textarea name="descripcion" rows="3"><?php echo $empresa_editar ? $empresa_editar['descripcion'] : ''; ?></textarea>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Descripcion del Proyecto</label>
-                        <textarea name="descripcion" rows="3"><?php echo $empresa_editar ? $empresa_editar['descripcion'] : ''; ?></textarea>
+                </div>
+
+                <div class="form-section">
+                    <h3>Carreras y Lugares</h3>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Selecciona las carreras y asigna lugares disponibles para cada una</p>
+                    <div class="carreras-checkbox">
+                        <?php 
+                        mysqli_data_seek($carreras_disponibles, 0);
+                        while ($carrera = mysqli_fetch_assoc($carreras_disponibles)): 
+                            $lugares_actuales = isset($carreras_empresa[$carrera['id']]) ? $carreras_empresa[$carrera['id']] : 0;
+                            $checked = $lugares_actuales > 0 ? 'checked' : '';
+                        ?>
+                        <div class="lugares-carrera">
+                            <label>
+                                <input type="checkbox" name="carreras[]" value="<?php echo $carrera['id']; ?>" <?php echo $checked; ?> onchange="toggleLugares(this, <?php echo $carrera['id']; ?>)">
+                                <?php echo $carrera['nombre']; ?>
+                            </label>
+                            <div id="lugares-<?php echo $carrera['id']; ?>" style="<?php echo $lugares_actuales > 0 ? 'display:block;' : 'display:none;'; ?> margin-top: 10px;">
+                                <div class="lugares-input">
+                                    <label style="margin:0;">Lugares:</label>
+                                    <input type="number" name="lugares[<?php echo $carrera['id']; ?>]" value="<?php echo $lugares_actuales; ?>" min="0" max="50">
+                                </div>
+                            </div>
+                        </div>
+                        <?php endwhile; ?>
                     </div>
                 </div>
 
@@ -288,11 +364,11 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Telefono del Contacto *</label>
+                            <label>Telefono de Empresa *</label>
                             <input type="text" name="telefono_empresa" value="<?php echo $empresa_editar ? $empresa_editar['telefono_empresa'] : ''; ?>" required>
                         </div>
                         <div class="form-group">
-                            <label>Correo del Contacto *</label>
+                            <label>Correo de Empresa *</label>
                             <input type="email" name="correo_empresa" value="<?php echo $empresa_editar ? $empresa_editar['correo_empresa'] : ''; ?>" required>
                         </div>
                     </div>
@@ -322,9 +398,8 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
                 <tr>
                     <th>ID</th>
                     <th>Empresa</th>
-                    <th>Carreras</th>
+                    <th>Direccion</th>
                     <th>Modalidad</th>
-                    <th>Cupos</th>
                     <th>Estatus</th>
                     <th>Acciones</th>
                 </tr>
@@ -334,24 +409,20 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
                 $result = mysqli_query($conn, "SELECT * FROM empresas ORDER BY id DESC");
                 while ($row = mysqli_fetch_assoc($result)) {
                     $badge = $row['estatus'] == 'Activa' ? 'badge-activa' : 'badge-inactiva';
-                    $cuposColor = $row['cupos'] > 0 ? '#2ed573' : '#ff4757';
                     
-                    // Obtener carreras de la empresa
-                    $carreras_text = "";
-                    $result_carreras = mysqli_query($conn, "SELECT c.nombre FROM empresas_carreras ec 
-                                                            INNER JOIN carreras c ON ec.id_carrera = c.id 
-                                                            WHERE ec.id_empresa = {$row['id']}");
-                    while ($c = mysqli_fetch_assoc($result_carreras)) {
-                        $carreras_text .= $c['nombre'] . ", ";
-                    }
-                    $carreras_text = rtrim($carreras_text, ", ");
+                    $direccion = $row['calle'];
+                    if ($row['num_ext']) $direccion .= " #" . $row['num_ext'];
+                    if ($row['num_int']) $direccion .= " Int. " . $row['num_int'];
+                    $direccion .= ", " . $row['colonia'];
+                    $direccion .= ", " . $row['ciudad'];
+                    $direccion .= ", " . $row['estado'];
+                    $direccion .= " C.P. " . $row['cp'];
                     
                     echo "<tr>";
                     echo "<td>{$row['id']}</td>";
                     echo "<td><strong>{$row['nombre_empresa']}</strong></td>";
-                    echo "<td>{$carreras_text}</td>";
+                    echo "<td style='font-size:12px;'>{$direccion}</td>";
                     echo "<td>{$row['modalidad']}</td>";
-                    echo "<td style='color:{$cuposColor}; font-weight:bold;'>{$row['cupos']}</td>";
                     echo "<td><span class='badge {$badge}'>{$row['estatus']}</span></td>";
                     echo "<td>";
                     echo "<a href='admin.php?seccion=empresas&editar={$row['id']}' class='btn-warning' style='color:white; padding:8px 15px; text-decoration:none; border-radius:5px; font-size:13px; margin-right:5px;'>Editar</a>";
@@ -364,57 +435,67 @@ $carreras_disponibles = mysqli_query($conn, "SELECT * FROM carreras ORDER BY id"
         </table>
         <?php endif; ?>
 
+        <!-- SECCIÓN POSTULACIONES -->
         <?php if($seccion == 'postulaciones'): ?>
         <div class="info-card">
-            <h3>Postulaciones de Alumnos</h3>
+            <h3>Postulaciones Pendientes</h3>
         </div>
 
+        <?php
+        $result = mysqli_query($conn, "SELECT p.*, e.nombre_empresa, c.nombre as carrera_nombre, 
+                                               a.nombre_completo, a.matricula
+                                        FROM postulaciones p 
+                                        INNER JOIN empresas e ON p.id_empresa = e.id 
+                                        LEFT JOIN carreras c ON p.id_carrera_postulacion = c.id 
+                                        INNER JOIN alumnos a ON p.id_alumno = a.id 
+                                        WHERE p.estado = 'pendiente'
+                                        ORDER BY p.fecha_postulacion DESC");
         
-
-<?php
-$result = mysqli_query($conn, "SELECT p.*, e.nombre_empresa, a.nombre_completo, a.matricula, c.nombre as carrera_nombre
-                               FROM postulaciones p 
-                               INNER JOIN empresas e ON p.id_empresa = e.id 
-                               INNER JOIN alumnos a ON p.id_alumno = a.id 
-                               LEFT JOIN carreras c ON p.id_carrera_postulacion = c.id
-                               ORDER BY p.id DESC");
-while ($row = mysqli_fetch_assoc($result)) {
-    $badge = 'badge-' . $row['estado'];
-    echo "<div class='info-card'>";
-    echo "<h4>{$row['nombre_empresa']} - <span class='badge $badge'>{$row['estado']}</span></h4>";
-    echo "<p><strong>Alumno:</strong> {$row['nombre_completo']} ({$row['matricula']})</p>";
-    echo "<p><strong>Carrera Seleccionada:</strong> " . ($row['carrera_nombre'] ? $row['carrera_nombre'] : 'N/A') . "</p>";
-    echo "<p><strong>Fecha:</strong> {$row['fecha_postulacion']}</p>";
-    echo "<p><strong>Oficio:</strong> {$row['numero_oficio']}</p>";
-    
-    if ($row['estado'] == 'pendiente') {
-        echo "<form method='POST' style='margin-top:10px;'>";
-        echo "<input type='hidden' name='id_postulacion' value='{$row['id']}'>";
-        echo "<input type='hidden' name='id_empresa' value='{$row['id_empresa']}'>";
-        echo "<div class='action-buttons'>";
-        echo "<button type='submit' name='actualizar_estado' value='aceptado' class='btn-success'>Aceptar</button>";
-        echo "<button type='submit' name='actualizar_estado' value='rechazado' class='btn-danger'>Rechazar</button>";
-        echo "</div>";
-        echo "</form>";
-    }
-    echo "</div>";
-}
-?>
+        if (mysqli_num_rows($result) > 0) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                echo "<div class='card'>";
+                echo "<h4>{$row['nombre_empresa']} - <span class='badge badge-pendiente'>Pendiente</span></h4>";
+                echo "<p><strong>Alumno:</strong> {$row['nombre_completo']} ({$row['matricula']})</p>";
+                echo "<p><strong>Carrera:</strong> " . ($row['carrera_nombre'] ? $row['carrera_nombre'] : 'N/A') . "</p>";
+                echo "<p><strong>Fecha:</strong> {$row['fecha_postulacion']}</p>";
+                echo "<p><strong>Oficio:</strong> {$row['numero_oficio']}</p>";
+                
+                echo "<form method='POST' style='margin-top:15px;'>";
+                echo "<input type='hidden' name='id_postulacion' value='{$row['id']}'>";
+                echo "<input type='hidden' name='id_empresa' value='{$row['id_empresa']}'>";
+                echo "<input type='hidden' name='id_carrera' value='{$row['id_carrera_postulacion']}'>";
+                echo "<input type='hidden' name='id_alumno' value='{$row['id_alumno']}'>";
+                echo "<input type='hidden' name='accion_postulacion' value=''>";
+                echo "<div class='action-buttons'>";
+                echo "<button type='button' onclick=\"this.form.accion_postulacion.value='aceptar'; this.form.submit();\" class='btn-success'>✓ Aceptar</button>";
+                echo "<button type='button' onclick=\"this.form.accion_postulacion.value='rechazar'; this.form.submit();\" class='btn-danger'>✗ Rechazar</button>";
+                echo "</div>";
+                echo "</form>";
+                
+                echo "<a href='ver_postulacion.php?id={$row['id']}'><button class='btn-info' style='margin-top:10px;'>Ver Detalles</button></a>";
+                echo "</div>";
+            }
+        } else {
+            echo "<div class='card' style='text-align:center; padding:50px;'>";
+            echo "<h3>No hay postulaciones pendientes</h3>";
+            echo "</div>";
+        }
+        ?>
         <?php endif; ?>
 
     </div>
 
     <script>
-        function cambiarCupos() {
-            var estatus = document.getElementById('estatus').value;
-            var cuposInput = document.getElementById('cupos');
+        function toggleLugares(checkbox, idCarrera) {
+            var divLugares = document.getElementById('lugares-' + idCarrera);
+            var inputLugares = divLugares.querySelector('input[type="number"]');
             
-            if (estatus === 'Inactiva') {
-                cuposInput.value = 0;
+            if (checkbox.checked) {
+                divLugares.style.display = 'block';
+                inputLugares.value = 5;
             } else {
-                if (cuposInput.value == 0) {
-                    cuposInput.value = 5;
-                }
+                divLugares.style.display = 'none';
+                inputLugares.value = 0;
             }
         }
     </script>

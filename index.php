@@ -9,6 +9,7 @@ if (isset($_POST['login'])) {
     $matricula = $_POST['matricula'];
     $password = $_POST['password'];
     
+    // Buscar admin
     $sql = "SELECT * FROM administradores WHERE usuario='$matricula' AND password='$password'";
     $result = mysqli_query($conn, $sql);
     
@@ -21,6 +22,7 @@ if (isset($_POST['login'])) {
         exit();
     }
     
+    // Buscar alumno
     $sql = "SELECT * FROM alumnos WHERE matricula='$matricula' AND password='$password'";
     $result = mysqli_query($conn, $sql);
     
@@ -30,13 +32,13 @@ if (isset($_POST['login'])) {
         $_SESSION['nombre_completo'] = $row['nombre_completo'];
         $_SESSION['apellido_completo'] = $row['apellido_completo'];
         $_SESSION['matricula'] = $row['matricula'];
-        $_SESSION['carrera'] = $row['carrera'];
+        $_SESSION['id_carrera'] = $row['id_carrera'];
         $_SESSION['rol'] = 'alumno';
         header("Location: alumno.php");
         exit();
     }
     
-    $mensaje = "Usuario o contraseña incorrectos";
+    $mensaje = "Matrícula o contraseña incorrectos";
     $tipo_mensaje = "error";
 }
 ?>
@@ -60,10 +62,12 @@ if (isset($_POST['login'])) {
             <?php endif; ?>
             
             <form method="POST">
-                <input type="text" name="matricula" placeholder="Usuario" required>
-                <input type="password" name="password" placeholder="Contraseña" required>
+                <input type="text" name="matricula" placeholder="Matrícula (SGEP)" required>
+                <input type="password" name="password" placeholder="Contraseña de (SGEP)" required>
                 <button type="submit" name="login">Iniciar Sesion</button>
             </form>
+            
+            
         </div>
     </div>
 </body>

@@ -13,31 +13,48 @@ if (!isset($_GET['id_empresa'])) {
 }
 
 $id_empresa = $_GET['id_empresa'];
+$id_alumno = $_SESSION['id'];
 
-// Verificar si ya se postuló a esta empresa
-$check = mysqli_query($conn, "SELECT * FROM postulaciones WHERE id_alumno={$_SESSION['id']} AND id_empresa=$id_empresa");
+$check = mysqli_query($conn, "SELECT * FROM postulaciones WHERE id_alumno=$id_alumno AND id_empresa=$id_empresa");
 if (mysqli_num_rows($check) > 0) {
+    header("Location: alumno.php");
+    exit();
+}
+
+$check_pendiente = mysqli_query($conn, "SELECT * FROM postulaciones WHERE id_alumno=$id_alumno AND estado='pendiente'");
+if (mysqli_num_rows($check_pendiente) > 0) {
     header("Location: alumno.php");
     exit();
 }
 
 $empresa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM empresas WHERE id=$id_empresa"));
 
-if (!$empresa || $empresa['estatus'] != 'Activa' || $empresa['cupos'] <= 0) {
+if (!$empresa || $empresa['estatus'] != 'Activa') {
     header("Location: alumno.php");
     exit();
 }
 
-// Obtener carreras de la empresa
-$carreras_empresa = mysqli_query($conn, "SELECT ec.id_carrera, c.nombre FROM empresas_carreras ec 
-                                          INNER JOIN carreras c ON ec.id_carrera = c.id 
-                                          WHERE ec.id_empresa = $id_empresa");
+$carreras_empresa = mysqli_query($conn, "SELECT ecl.id_carrera, c.nombre, ecl.lugares, ecl.lugares_ocupados, 
+                                         (ecl.lugares - ecl.lugares_ocupados) as lugares_disponibles
+                                          FROM empresas_carreras_lugares ecl 
+                                          INNER JOIN carreras c ON ecl.id_carrera = c.id 
+                                          WHERE ecl.id_empresa = $id_empresa 
+                                          AND (ecl.lugares - ecl.lugares_ocupados) > 0
+                                          AND NOT EXISTS (
+                                              SELECT 1 FROM empresas_carreras_bloqueadas ecb 
+                                              WHERE ecb.id_alumno = $id_alumno 
+                                              AND ecb.id_empresa = $id_empresa 
+                                              AND ecb.id_carrera = ecl.id_carrera
+                                          )");
 $carreras_disponibles = [];
 while ($c = mysqli_fetch_assoc($carreras_empresa)) {
     $carreras_disponibles[] = $c;
 }
 
-$num_carreras = count($carreras_disponibles);
+if (count($carreras_disponibles) == 0) {
+    header("Location: alumno.php");
+    exit();
+}
 
 if (isset($_POST['postular'])) {
     $numero_oficio = $_POST['numero_oficio'];
@@ -50,10 +67,9 @@ if (isset($_POST['postular'])) {
     $id_carrera_postulacion = $_POST['id_carrera_postulacion'];
     
     $sql = "INSERT INTO postulaciones (id_alumno, id_empresa, id_carrera_postulacion, numero_oficio, nss, nivel, grupo, telefono, correo_personal, correo_institucional) 
-            VALUES ({$_SESSION['id']}, $id_empresa, $id_carrera_postulacion, '$numero_oficio', '$nss', '$nivel', '$grupo', '$telefono', '$correo_personal', '$correo_institucional')";
+            VALUES ($id_alumno, $id_empresa, $id_carrera_postulacion, '$numero_oficio', '$nss', '$nivel', '$grupo', '$telefono', '$correo_personal', '$correo_institucional')";
     
     if (mysqli_query($conn, $sql)) {
-        mysqli_query($conn, "UPDATE empresas SET cupos = cupos - 1 WHERE id = $id_empresa");
         header("Location: alumno.php?seccion=postulaciones");
         exit();
     }
@@ -105,7 +121,7 @@ $nombre_completo = $_SESSION['nombre_completo'] . ' ' . $_SESSION['apellido_comp
                             <option value="">Seleccionar</option>
                             <option value="Licenciatura">Licenciatura</option>
                             <option value="Ingenieria">Ingenieria</option>
-                            <option value="Tecnico">Tecnico</option>
+                            <option value="Tecnico">TSU</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -131,39 +147,26 @@ $nombre_completo = $_SESSION['nombre_completo'] . ' ' . $_SESSION['apellido_comp
 
             <div class="card">
                 <h3>Datos de la Empresa</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Empresa</label>
-                        <input type="text" value="<?php echo $empresa['nombre_empresa']; ?>" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Modalidad</label>
-                        <input type="text" value="<?php echo $empresa['modalidad']; ?>" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Ubicacion</label>
-                        <input type="text" value="<?php echo $empresa['ubicacion']; ?>" readonly>
-                    </div>
+                <div class="form-group">
+                    <label>Empresa</label>
+                    <input type="text" value="<?php echo $empresa['nombre_empresa']; ?>" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Modalidad</label>
+                    <input type="text" value="<?php echo $empresa['modalidad']; ?>" readonly>
                 </div>
                 
-                <?php if($num_carreras > 1): ?>
                 <div class="form-group">
                     <label>Selecciona una Carrera *</label>
                     <select name="id_carrera_postulacion" required>
                         <option value="">Seleccionar carrera</option>
                         <?php foreach($carreras_disponibles as $carrera): ?>
-                        <option value="<?php echo $carrera['id_carrera']; ?>"><?php echo $carrera['nombre']; ?></option>
+                        <option value="<?php echo $carrera['id_carrera']; ?>">
+                            <?php echo $carrera['nombre']; ?> (<?php echo $carrera['lugares_disponibles']; ?> lugares)
+                        </option>
                         <?php endforeach; ?>
                     </select>
-                    
                 </div>
-                <?php else: ?>
-                <div class="form-group">
-                    <label>Carrera</label>
-                    <input type="text" value="<?php echo $carreras_disponibles[0]['nombre']; ?>" readonly>
-                    <input type="hidden" name="id_carrera_postulacion" value="<?php echo $carreras_disponibles[0]['id_carrera']; ?>">
-                </div>
-                <?php endif; ?>
             </div>
 
             <div class="action-buttons">
